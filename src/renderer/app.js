@@ -64,7 +64,7 @@ function renderTiles() {
     el.dataset.other = String(other)
     el.querySelector('.pill').textContent = STATUS_LABEL[status] ?? status
     el.querySelector('.tile-where').textContent = where
-    el.title = other ? 'Running from a different worktree than the one selected' : ''
+    el.title = other ? 'Running from a different worktree than the one selected' : el.dataset.hint ?? ''
   }
 }
 

@@ -611,6 +611,9 @@ app.on('before-quit', async (e) => {
 })
 app.on('window-all-closed', () => app.quit())
 
+// Dev aid: run against a scratch settings folder without touching the real one.
+if (process.env.FLOW_LAUNCHER_USER_DATA) app.setPath('userData', process.env.FLOW_LAUNCHER_USER_DATA)
+
 app.whenReady().then(async () => {
   app.setName('Flow Launcher')
   // Packaged builds get the icon from the .icns; this covers `npm start`.

@@ -72,15 +72,29 @@ main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
 /* ---------- tiles ---------- */
 
-.tiles {
+.tiles { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group-head { margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
+.group-tiles { display: grid; gap: 12px; }
+.group-tiles.desktop { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* Lone backend tile: full width, laid out in a row so it stays short. */
+.group-tiles.backend .tile {
+  min-height: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: 'title sub foot';
+  align-items: center;
+  column-gap: 14px;
 }
+.group-tiles.backend .tile-title { grid-area: title; }
+.group-tiles.backend .tile-sub { grid-area: sub; }
+.group-tiles.backend .tile-foot { grid-area: foot; margin-top: 0; justify-content: flex-end; }
+
 .tile {
   position: relative;
   text-align: left;
-  min-height: 132px;
+  min-height: 128px;
   min-width: 0;
   padding: 16px;
   border-radius: 12px;
@@ -93,7 +107,6 @@ main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 }
 .tile:hover { border-color: #3a3d44; background: var(--panel-2); }
 .tile:active { transform: translateY(1px); }
-.tile-kind { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
 .tile-title { font-size: 17px; font-weight: 600; }
 .tile-sub { color: var(--muted); font-size: 12px; }
 .tile-foot { margin-top: auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -130,6 +143,8 @@ main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 /* ---------- flags ---------- */
 
 .flags {
+  /* Size to the tiles column; the flag list scrolls instead of growing the row. */
+  contain: size;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -137,7 +152,6 @@ main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 276px;
 }
 .flags-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
 .flags h2 { margin: 0; font-size: 14px; }

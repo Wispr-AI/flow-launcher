@@ -19,30 +19,36 @@
     <main>
       <section class="top">
         <div class="tiles" id="tiles">
-          <button class="tile" data-tile="backend">
-            <div class="tile-kind">Backend</div>
-            <div class="tile-title">Local backend</div>
-            <div class="tile-sub">wispr-dev up · docker compose</div>
-            <div class="tile-foot"><span class="pill"></span><span class="tile-where"></span></div>
-          </button>
-          <button class="tile" data-tile="prod">
-            <div class="tile-kind">Desktop</div>
-            <div class="tile-title">Wispr Flow (installed)</div>
-            <div class="tile-sub">/Applications · production backend</div>
-            <div class="tile-foot"><span class="pill"></span><span class="tile-where"></span></div>
-          </button>
-          <button class="tile" data-tile="local-prod">
-            <div class="tile-kind">Desktop</div>
-            <div class="tile-title">Local desktop → prod backend</div>
-            <div class="tile-sub">yarn start</div>
-            <div class="tile-foot"><span class="pill"></span><span class="tile-where"></span></div>
-          </button>
-          <button class="tile" data-tile="local-local">
-            <div class="tile-kind">Desktop</div>
-            <div class="tile-title">Local desktop → local backend</div>
-            <div class="tile-sub">yarn start dev-backend · signs in as dev@wispr.ai</div>
-            <div class="tile-foot"><span class="pill"></span><span class="tile-where"></span></div>
-          </button>
+          <div class="group">
+            <h2 class="group-head">Backend</h2>
+            <div class="group-tiles backend">
+            <button class="tile" data-tile="backend">
+              <div class="tile-title">Local</div>
+              <div class="tile-sub">wispr-dev up · docker compose</div>
+              <div class="tile-foot"><span class="pill"></span><span class="tile-where"></span></div>
+            </button>
+            </div>
+          </div>
+          <div class="group">
+            <h2 class="group-head">Desktop app</h2>
+            <div class="group-tiles desktop">
+            <button class="tile" data-tile="prod">
+              <div class="tile-title">Installed</div>
+              <div class="tile-sub">/Applications · prod backend</div>
+              <div class="tile-foot"><span class="pill"></span><span class="tile-where"></span></div>
+            </button>
+            <button class="tile" data-tile="local-prod">
+              <div class="tile-title">Local → prod backend</div>
+              <div class="tile-sub">yarn start</div>
+              <div class="tile-foot"><span class="pill"></span><span class="tile-where"></span></div>
+            </button>
+            <button class="tile" data-tile="local-local" data-hint="Signs in as dev@wispr.ai">
+              <div class="tile-title">Local → local backend</div>
+              <div class="tile-sub">yarn start dev-backend</div>
+              <div class="tile-foot"><span class="pill"></span><span class="tile-where"></span></div>
+            </button>
+            </div>
+          </div>
         </div>
 
         <aside class="flags">
