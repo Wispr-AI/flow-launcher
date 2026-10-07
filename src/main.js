@@ -613,6 +613,8 @@ app.on('window-all-closed', () => app.quit())
 
 app.whenReady().then(async () => {
   app.setName('Flow Launcher')
+  // Packaged builds get the icon from the .icns; this covers `npm start`.
+  if (!app.isPackaged) app.dock?.setIcon(path.join(__dirname, '..', 'build', 'icon.png'))
   loadSettings()
   if (!fs.existsSync(settings.worktree)) settings.worktree = ARIA_ROOT
   await adoptLoginShellPath()
