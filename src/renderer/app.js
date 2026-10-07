@@ -87,7 +87,9 @@ document.querySelectorAll('.tile').forEach((el) =>
 let argsSaveTimer = null
 function renderBackendCmd() {
   const args = $('#backend-args').value.trim()
-  $('#backend-cmd').textContent = `wispr-dev up${args ? ` ${args}` : ''}`
+  const cmd = `wispr-dev up${args ? ` ${args}` : ''}`
+  $('#backend-cmd').textContent = cmd
+  $('#backend-cmd').title = cmd
 }
 $('#backend-args').addEventListener('input', () => {
   renderBackendCmd()

@@ -39,15 +39,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
   border-bottom: 1px solid var(--border);
 }
 .brand { font-weight: 600; letter-spacing: 0.2px; }
-.worktree { -webkit-app-region: no-drag; display: flex; align-items: center; gap: 8px; color: var(--muted); }
-.worktree select {
-  background: var(--panel-2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 8px;
-  max-width: 420px;
-}
 
 .icon-btn {
   background: transparent;
@@ -75,7 +66,7 @@ main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .tiles { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .group { display: flex; flex-direction: column; gap: 8px; }
 .group-head { margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
-.group-tiles { display: grid; gap: 12px; }
+.group-tiles { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .group-head-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .args { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; flex: 0 1 340px; min-width: 0; }
 .args input {
@@ -90,20 +81,7 @@ main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 }
 .args input:focus { outline: none; border-color: var(--accent); }
 #backend-cmd { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.group-tiles.desktop { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
-/* Lone backend tile: full width, laid out in a row so it stays short. */
-.group-tiles.backend .tile {
-  min-height: 0;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-areas: 'title sub foot';
-  align-items: center;
-  column-gap: 14px;
-}
-.group-tiles.backend .tile-title { grid-area: title; }
-.group-tiles.backend .tile-sub { grid-area: sub; }
-.group-tiles.backend .tile-foot { grid-area: foot; margin-top: 0; justify-content: flex-end; }
 
 .tile {
   position: relative;
@@ -156,13 +134,30 @@ main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
 /* ---------- flags ---------- */
 
-.flags {
-  /* Size to the tiles column; the flag list scrolls instead of growing the row. */
-  contain: size;
+/* Right column sizes to the tiles column; the flag list scrolls instead of growing the row. */
+.side { contain: size; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.panel {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px;
+}
+.panel h2 { margin: 0; font-size: 14px; }
+.worktree { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+.worktree-row { display: flex; gap: 6px; }
+.worktree select {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.worktree .icon-btn { height: auto; }
+.flags {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;

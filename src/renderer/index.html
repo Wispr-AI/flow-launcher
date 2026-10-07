@@ -9,11 +9,6 @@
   <body>
     <header class="titlebar">
       <div class="brand">Flow Launcher</div>
-      <label class="worktree">
-        <span>Worktree</span>
-        <select id="worktree"></select>
-        <button id="refresh-worktrees" class="icon-btn" title="Refresh worktrees">↻</button>
-      </label>
     </header>
 
     <main>
@@ -57,7 +52,16 @@
           </div>
         </div>
 
-        <aside class="flags">
+        <div class="side">
+        <section class="panel worktree">
+          <h2>Worktree</h2>
+          <div class="worktree-row">
+            <select id="worktree"></select>
+            <button id="refresh-worktrees" class="icon-btn" title="Refresh worktrees">↻</button>
+          </div>
+        </section>
+
+        <aside class="panel flags">
           <div class="flags-head">
             <h2>Feature flags</h2>
             <span class="hint">Local desktop only · applies on next launch</span>
@@ -69,6 +73,7 @@
           <ul id="flag-list"></ul>
           <div id="flag-empty" class="empty">No overrides yet. Everything follows PostHog.</div>
         </aside>
+        </div>
       </section>
 
       <section class="logs" id="logs">
