@@ -4,6 +4,8 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
+const authProfiles = require('./authProfiles')
+
 const ARIA_ROOT = path.join(os.homedir(), 'projects', 'aria-flow')
 const PROD_APP = '/Applications/Wispr Flow.app'
 const PROD_BUNDLE_ID = 'com.electron.wispr-flow'
@@ -462,10 +464,24 @@ async function killPids(getPids) {
   }
 }
 
+/** Puts the login the next launch needs into the shared session.json (see authProfiles.js). */
+async function swapLogin(tile) {
+  const { prodPids, localDesktops } = await scanProcesses()
+  if (prodPids.length || localDesktops.length) return 'Login not swapped: a Wispr Flow app is still running'
+  const target = authProfiles.profileForTile(tile)
+  try {
+    return `Login: ${authProfiles.switchTo(target, path.join(app.getPath('userData'), 'auth-profiles'))}`
+  } catch (err) {
+    return `ERROR swapping login: ${err.message}`
+  }
+}
+
 async function startDesktop(tile, worktree) {
+  const loginNote = await swapLogin(tile)
   if (tile === 'prod') {
     busy.desktop = true
     setDesktop({ tile, status: 'starting', worktree: null, external: false })
+    note('desktop', loginNote)
     note('desktop', 'Opening installed Wispr Flow')
     await run('open', ['-a', PROD_APP])
     await waitFor(async () => (await scanProcesses()).prodPids.length > 0, 15000)
@@ -492,6 +508,7 @@ async function startDesktop(tile, worktree) {
   env = { ...env, ...featureFlagEnv() }
 
   clearLog('desktop')
+  note('desktop', loginNote)
   if (env.WISPR_FEATURE_FLAGS) note('desktop', `Feature flag overrides: ${env.WISPR_FEATURE_FLAGS}`)
   const child = spawnShell(`yarn start${useLocalBackend ? ' dev-backend' : ''}`, {
     cwd: path.join(worktree, 'desktop'),
