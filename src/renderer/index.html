@@ -20,11 +20,17 @@
       <section class="top">
         <div class="tiles" id="tiles">
           <div class="group">
-            <h2 class="group-head">Backend</h2>
+            <div class="group-head-row">
+              <h2 class="group-head">Backend</h2>
+              <label class="args" title="Appended to wispr-dev up. Takes effect the next time the backend starts.">
+                <span>args</span>
+                <input id="backend-args" placeholder="e.g. backend --with-soniox-tunnel" spellcheck="false" autocomplete="off" />
+              </label>
+            </div>
             <div class="group-tiles backend">
             <button class="tile" data-tile="backend">
               <div class="tile-title">Local</div>
-              <div class="tile-sub">wispr-dev up · docker compose</div>
+              <div class="tile-sub" id="backend-cmd">wispr-dev up</div>
               <div class="tile-foot"><span class="pill"></span><span class="tile-where"></span></div>
             </button>
             </div>

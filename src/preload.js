@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('launcher', {
   toggle: (tile) => ipcRenderer.invoke('toggle', tile),
   setWorktree: (wt) => ipcRenderer.invoke('set-worktree', wt),
   setFlags: (flags) => ipcRenderer.invoke('set-flags', flags),
+  setBackendArgs: (args) => ipcRenderer.invoke('set-backend-args', args),
   setLogsOpen: (open) => ipcRenderer.invoke('set-logs-open', open),
   clearLog: (key) => ipcRenderer.invoke('clear-log', key),
   onState: (fn) => ipcRenderer.on('state', (_e, s) => fn(s)),

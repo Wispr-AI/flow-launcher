@@ -31,7 +31,7 @@ let win = null
 // ---------------------------------------------------------------- settings
 
 const settingsPath = () => path.join(app.getPath('userData'), 'settings.json')
-let settings = { worktree: ARIA_ROOT, flags: [], logsOpen: true }
+let settings = { worktree: ARIA_ROOT, flags: [], logsOpen: true, backendArgs: '' }
 
 function loadSettings() {
   try {
@@ -365,7 +365,8 @@ async function startBackend(worktree) {
   clearLog('backend')
   setBackend({ status: 'starting', worktree, external: false })
   try {
-    ownBackendUp = spawnShell('python3 scripts/wispr-dev up', { cwd: worktree, logKey: 'backend' })
+    const args = settings.backendArgs.trim()
+    ownBackendUp = spawnShell(`python3 scripts/wispr-dev up${args ? ` ${args}` : ''}`, { cwd: worktree, logKey: 'backend' })
     const { code } = await ownBackendUp.exited
     ownBackendUp = null
     if (code !== 0) throw new Error(`wispr-dev up exited with ${code}`)
@@ -614,6 +615,10 @@ ipcMain.handle('set-flags', (_e, flags) => {
   settings.flags = flags
   saveSettings()
   pushState()
+})
+ipcMain.handle('set-backend-args', (_e, args) => {
+  settings.backendArgs = args
+  saveSettings()
 })
 ipcMain.handle('set-logs-open', (_e, open) => {
   settings.logsOpen = open

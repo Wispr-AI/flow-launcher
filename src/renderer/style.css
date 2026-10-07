@@ -76,6 +76,20 @@ main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .group { display: flex; flex-direction: column; gap: 8px; }
 .group-head { margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
 .group-tiles { display: grid; gap: 12px; }
+.group-head-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.args { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; flex: 0 1 340px; min-width: 0; }
+.args input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font: 12px var(--mono);
+}
+.args input:focus { outline: none; border-color: var(--accent); }
+#backend-cmd { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .group-tiles.desktop { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 /* Lone backend tile: full width, laid out in a row so it stays short. */

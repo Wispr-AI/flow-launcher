@@ -82,6 +82,19 @@ document.querySelectorAll('.tile').forEach((el) =>
   })
 )
 
+// ---------------------------------------------------------------- backend args
+
+let argsSaveTimer = null
+function renderBackendCmd() {
+  const args = $('#backend-args').value.trim()
+  $('#backend-cmd').textContent = `wispr-dev up${args ? ` ${args}` : ''}`
+}
+$('#backend-args').addEventListener('input', () => {
+  renderBackendCmd()
+  clearTimeout(argsSaveTimer)
+  argsSaveTimer = setTimeout(() => api.setBackendArgs($('#backend-args').value.trim()), 300)
+})
+
 // ---------------------------------------------------------------- flags
 
 function setKnownFlags(names) {
@@ -267,6 +280,8 @@ api.onLogCleared((key) => {
   flags = state.settings.flags ?? []
   await renderWorktrees(init.worktrees)
   setKnownFlags(init.knownFlags)
+  $('#backend-args').value = state.settings.backendArgs ?? ''
+  renderBackendCmd()
   renderFlags()
   renderTiles()
   $('#logs').classList.toggle('collapsed', state.settings.logsOpen === false)
