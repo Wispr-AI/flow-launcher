@@ -579,6 +579,13 @@ function createWindow() {
     webPreferences: { preload: path.join(__dirname, 'preload.js') },
   })
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'))
+  // macOS convention: the red X (and Cmd+W) hide the window; only a real quit closes it.
+  // Hiding keeps the renderer alive, so logs keep collecting while it's out of sight.
+  win.on('close', (e) => {
+    if (appQuitting) return
+    e.preventDefault()
+    win.hide()
+  })
   // Dev aid: FLOW_LAUNCHER_SNAPSHOT=/path.png captures the window a few seconds after launch.
   if (process.env.FLOW_LAUNCHER_SNAPSHOT) {
     setTimeout(async () => {
@@ -616,7 +623,9 @@ ipcMain.handle('clear-log', (_e, key) => clearLog(key))
 ipcMain.handle('reveal', (_e, p) => shell.openPath(p))
 
 let quitting = false
+let appQuitting = false
 app.on('before-quit', async (e) => {
+  appQuitting = true
   stopBackendTail()
   stopProdTail()
   if (ownDesktop && !quitting) {
@@ -626,7 +635,7 @@ app.on('before-quit', async (e) => {
     app.quit()
   }
 })
-app.on('window-all-closed', () => app.quit())
+app.on('activate', () => win?.show())
 
 // Dev aid: run against a scratch settings folder without touching the real one.
 if (process.env.FLOW_LAUNCHER_USER_DATA) app.setPath('userData', process.env.FLOW_LAUNCHER_USER_DATA)
