@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
+    <title>Flow Launcher</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="titlebar">
+      <div class="brand">Flow Launcher</div>
+      <label class="worktree">
+        <span>Worktree</span>
+        <select id="worktree"></select>
+        <button id="refresh-worktrees" class="icon-btn" title="Refresh worktrees">↻</button>
+      </label>
+    </header>
+
+    <main>
+      <section class="top">
+        <div class="tiles" id="tiles">
+          <button class="tile" data-tile="backend">
+            <div class="tile-kind">Backend</div>
+            <div class="tile-title">Local backend</div>
+            <div class="tile-sub">wispr-dev up · docker compose</div>
+            <div class="tile-foot"><span class="pill"></span><span class="tile-where"></span></div>
+          </button>
+          <button class="tile" data-tile="prod">
+            <div class="tile-kind">Desktop</div>
+            <div class="tile-title">Wispr Flow (installed)</div>
+            <div class="tile-sub">/Applications · production backend</div>
+            <div class="tile-foot"><span class="pill"></span><span class="tile-where"></span></div>
+          </button>
+          <button class="tile" data-tile="local-prod">
+            <div class="tile-kind">Desktop</div>
+            <div class="tile-title">Local desktop → prod backend</div>
+            <div class="tile-sub">yarn start</div>
+            <div class="tile-foot"><span class="pill"></span><span class="tile-where"></span></div>
+          </button>
+          <button class="tile" data-tile="local-local">
+            <div class="tile-kind">Desktop</div>
+            <div class="tile-title">Local desktop → local backend</div>
+            <div class="tile-sub">yarn start dev-backend · signs in as dev@wispr.ai</div>
+            <div class="tile-foot"><span class="pill"></span><span class="tile-where"></span></div>
+          </button>
+        </div>
+
+        <aside class="flags">
+          <div class="flags-head">
+            <h2>Feature flags</h2>
+            <span class="hint">Local desktop only · applies on next launch</span>
+          </div>
+          <form id="flag-form" autocomplete="off">
+            <input id="flag-input" list="known-flags" placeholder="flag-name or flag-name=variant" spellcheck="false" />
+            <datalist id="known-flags"></datalist>
+          </form>
+          <ul id="flag-list"></ul>
+          <div id="flag-empty" class="empty">No overrides yet. Everything follows PostHog.</div>
+        </aside>
+      </section>
+
+      <section class="logs" id="logs">
+        <div class="logs-bar">
+          <button id="logs-toggle" class="icon-btn" title="Show/hide logs">▾</button>
+          <div class="tabs" id="log-tabs">
+            <button data-key="backend">Backend<span class="badge"></span></button>
+            <button data-key="desktop">Desktop<span class="badge"></span></button>
+            <button data-key="launcher">Launcher<span class="badge"></span></button>
+          </div>
+          <input id="log-filter" placeholder="Filter" spellcheck="false" />
+          <label class="check"><input type="checkbox" id="errors-only" /> Errors only</label>
+          <button id="log-clear" class="text-btn">Clear</button>
+        </div>
+        <div class="log-view" id="log-view"></div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
