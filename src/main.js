@@ -18,10 +18,13 @@ const DEV_SIGNIN_ENV = {
 const MAX_LOG_LINES = 5000
 const BACKEND_HEALTH_TIMEOUT_MS = 180_000
 
-const DESKTOP_TILES = ['local-prod', 'local-local', 'prod']
+const DESKTOP_TILES = ['local-prod', 'local-staging', 'local-local', 'prod']
+// `yarn start` keyword that points the local desktop at each backend.
+const DESKTOP_START_ARG = { 'local-prod': '', 'local-staging': 'staging-backend', 'local-local': 'dev-backend' }
 const TILE_LABELS = {
   backend: 'Local backend',
   'local-prod': 'Local desktop → prod backend',
+  'local-staging': 'Local desktop → staging backend',
   'local-local': 'Local desktop → local backend',
   prod: 'Wispr Flow (installed)',
 }
@@ -190,7 +193,9 @@ async function scanProcesses() {
     if (cmd.startsWith(`${PROD_APP}/`)) prodPids.push(Number(pid))
     const e = line.match(ELECTRON_RE)
     if (e && e[2].startsWith(ARIA_ROOT)) {
-      localDesktops.push({ pid: Number(e[1]), worktree: e[2], devBackend: /\bdev-backend\b/.test(e[3] ?? '') })
+      const args = e[3] ?? ''
+      const tile = /\bdev-backend\b/.test(args) ? 'local-local' : /\bstaging-backend\b/.test(args) ? 'local-staging' : 'local-prod'
+      localDesktops.push({ pid: Number(e[1]), worktree: e[2], tile })
     }
   }
   return { prodPids, localDesktops }
@@ -304,7 +309,7 @@ function reconcileDesktop() {
   }
   const local = localDesktops[0]
   if (local) {
-    setDesktop({ tile: local.devBackend ? 'local-local' : 'local-prod', worktree: local.worktree, status: 'running', external: true })
+    setDesktop({ tile: local.tile, worktree: local.worktree, status: 'running', external: true })
   } else if (prodPids.length) {
     setDesktop({ tile: 'prod', worktree: null, status: 'running', external: false })
   } else {
@@ -511,7 +516,8 @@ async function startDesktop(tile, worktree) {
   clearLog('desktop')
   note('desktop', loginNote)
   if (env.WISPR_FEATURE_FLAGS) note('desktop', `Feature flag overrides: ${env.WISPR_FEATURE_FLAGS}`)
-  const child = spawnShell(`yarn start${useLocalBackend ? ' dev-backend' : ''}`, {
+  const startArg = DESKTOP_START_ARG[tile]
+  const child = spawnShell(`yarn start${startArg ? ` ${startArg}` : ''}`, {
     cwd: path.join(worktree, 'desktop'),
     env,
     logKey: 'desktop',
