@@ -88,8 +88,8 @@ let argsSaveTimer = null
 function renderBackendCmd() {
   const args = $('#backend-args').value.trim()
   const cmd = `wispr-dev up${args ? ` ${args}` : ''}`
-  $('#backend-cmd').textContent = cmd
-  $('#backend-cmd').title = cmd
+  $('.tile[data-tile="backend"]').dataset.hint = cmd
+  if (state) renderTiles()
 }
 $('#backend-args').addEventListener('input', () => {
   renderBackendCmd()

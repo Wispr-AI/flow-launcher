@@ -9,6 +9,10 @@
   --green: #3ecf8e;
   --amber: #f5b544;
   --red: #ff6b6b;
+  --env-installed: #aeb5c2;
+  --env-prod: #6ea8fe;
+  --env-staging: #b794f6;
+  --env-local: #f2a65a;
   --mono: ui-monospace, 'SF Mono', Menlo, monospace;
   color-scheme: dark;
 }
@@ -63,11 +67,12 @@ main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
 /* ---------- tiles ---------- */
 
-.tiles { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tiles { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .group { display: flex; flex-direction: column; gap: 8px; }
 .group-head { margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
 .group-tiles { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 1040px) { .group-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.group-heads .span-rest { grid-column: 2 / -1; }
 .group-head-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .args { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; flex: 0 1 340px; min-width: 0; }
 .args input {
@@ -81,27 +86,40 @@ main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
   font: 12px var(--mono);
 }
 .args input:focus { outline: none; border-color: var(--accent); }
-#backend-cmd { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Each tile is tinted by the backend it talks to; status shows in the pill and the border. */
+.tile[data-env='installed'] { --env: var(--env-installed); }
+.tile[data-env='prod'] { --env: var(--env-prod); }
+.tile[data-env='staging'] { --env: var(--env-staging); }
+.tile[data-env='local'] { --env: var(--env-local); }
 
 .tile {
+  --env: var(--muted);
   position: relative;
+  overflow: hidden;
   text-align: left;
-  min-height: 128px;
+  min-height: 108px;
   min-width: 0;
-  padding: 16px;
+  padding: 16px 16px 14px 20px;
   border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--panel);
+  border: 1px solid color-mix(in srgb, var(--env) 18%, var(--border));
+  background: color-mix(in srgb, var(--env) 5%, var(--panel));
   display: flex;
   flex-direction: column;
   gap: 4px;
   transition: border-color 120ms, background 120ms, box-shadow 120ms;
 }
-.tile:hover { border-color: #3a3d44; background: var(--panel-2); }
+.tile::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--env);
+  opacity: 0.55;
+}
+.tile:hover { background: color-mix(in srgb, var(--env) 9%, var(--panel)); border-color: color-mix(in srgb, var(--env) 35%, var(--border)); }
 .tile:active { transform: translateY(1px); }
-.tile-title { font-size: 17px; font-weight: 600; }
-.tile-sub { color: var(--muted); font-size: 12px; }
+.tile-title { font-size: 18px; font-weight: 600; color: color-mix(in srgb, var(--env) 70%, var(--text)); }
 .tile-foot { margin-top: auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .tile-where { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -119,12 +137,17 @@ main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 }
 .pill::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
-.tile[data-status='running'] { border-color: color-mix(in srgb, var(--green) 55%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--green) 25%, transparent) inset; }
+.tile[data-status='running'] {
+  border-color: color-mix(in srgb, var(--env) 65%, transparent);
+  background: color-mix(in srgb, var(--env) 11%, var(--panel));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--env) 30%, transparent) inset, 0 0 18px -6px color-mix(in srgb, var(--env) 60%, transparent);
+}
+.tile[data-status='running']::before { opacity: 1; }
 .tile[data-status='running'] .pill { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
 .tile[data-status='starting'] .pill,
 .tile[data-status='stopping'] .pill { color: var(--amber); background: color-mix(in srgb, var(--amber) 14%, transparent); }
 .tile[data-status='starting'],
-.tile[data-status='stopping'] { border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+.tile[data-status='stopping'] { border-color: color-mix(in srgb, var(--env) 45%, transparent); }
 .tile[data-status='starting'] .pill::before,
 .tile[data-status='stopping'] .pill::before { animation: pulse 1s ease-in-out infinite; }
 .tile[data-status='error'] { border-color: color-mix(in srgb, var(--red) 55%, transparent); }
