@@ -57,11 +57,19 @@
 
         <div class="side">
         <section class="panel worktree">
-          <h2>Worktree</h2>
-          <div class="worktree-row">
-            <select id="worktree"></select>
+          <div class="worktree-heading">
+            <h2>Worktrees / branches</h2>
             <button id="refresh-worktrees" class="icon-btn" title="Refresh worktrees">↻</button>
           </div>
+          <label class="worktree-row" for="backend-worktree">
+            <span>Backend</span>
+            <select id="backend-worktree"></select>
+          </label>
+          <label class="worktree-row" for="desktop-worktree">
+            <span>Frontend (desktop)</span>
+            <select id="desktop-worktree"></select>
+          </label>
+          <div class="hint">Applies on next launch. Local desktop connects to the selected backend.</div>
         </section>
 
         <aside class="panel flags">

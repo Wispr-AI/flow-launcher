@@ -8,7 +8,8 @@
   "scripts": {
     "start": "electron .",
     "icon": "electron build/render-icon.js",
-    "package": "electron-packager . 'Flow Launcher' --platform=darwin --icon=build/icon.icns --overwrite --out=dist --ignore='^/dist' && rm -rf ~/Applications/'Flow Launcher.app' && mkdir -p ~/Applications && cp -R 'dist/Flow Launcher-darwin-'*/'Flow Launcher.app' ~/Applications/"
+    "package": "electron-packager . 'Flow Launcher' --platform=darwin --icon=build/icon.icns --overwrite --out=dist --ignore='^/dist' && rm -rf ~/Applications/'Flow Launcher.app' && mkdir -p ~/Applications && cp -R 'dist/Flow Launcher-darwin-'*/'Flow Launcher.app' ~/Applications/",
+    "test": "node --test"
   },
   "devDependencies": {
     "@electron/packager": "^20.3.0",

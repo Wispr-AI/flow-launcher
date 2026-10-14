@@ -20,28 +20,41 @@ const shortWt = (wt) => (!wt ? '' : wt === ariaRoot ? 'aria-flow' : wt.split('/'
 
 // ---------------------------------------------------------------- worktrees
 
-async function renderWorktrees(list) {
-  const select = $('#worktree')
-  select.innerHTML = ''
-  for (const wt of list) {
-    const opt = document.createElement('option')
-    opt.value = wt.path
-    opt.textContent = wt.path === ariaRoot ? `${wt.branch}  ·  main checkout` : `${wt.branch}  ·  ${shortWt(wt.path)}`
-    select.append(opt)
+function renderWorktrees(list) {
+  for (const service of ['backend', 'desktop']) {
+    const select = $(`#${service}-worktree`)
+    select.innerHTML = ''
+    const selected = state?.settings[`${service}Worktree`]
+    for (const wt of list) {
+      const opt = document.createElement('option')
+      opt.value = wt.path
+      opt.textContent = wt.path === ariaRoot ? `${wt.branch}  ·  main checkout` : `${wt.branch}  ·  ${shortWt(wt.path)}`
+      select.append(opt)
+    }
+    if (selected && !list.some((wt) => wt.path === selected)) {
+      const opt = document.createElement('option')
+      opt.value = selected
+      opt.textContent = `${shortWt(selected)} · unavailable`
+      select.append(opt)
+    }
+    select.value = selected ?? ''
+    select.title = selected ?? ''
   }
-  if (state) select.value = state.settings.worktree
 }
 
-$('#worktree').addEventListener('change', async (e) => {
-  setKnownFlags(await api.setWorktree(e.target.value))
-})
+for (const service of ['backend', 'desktop']) {
+  $(`#${service}-worktree`).addEventListener('change', async (e) => {
+    setKnownFlags(await api.setWorktree(service, e.target.value))
+    e.target.title = e.target.value
+  })
+}
 $('#refresh-worktrees').addEventListener('click', async () => renderWorktrees(await api.worktrees()))
 window.addEventListener('focus', async () => renderWorktrees(await api.worktrees()))
 
 // ---------------------------------------------------------------- tiles
 
 function tileView(tile) {
-  const selected = state.settings.worktree
+  const selected = state.settings[tile === 'backend' ? 'backendWorktree' : 'desktopWorktree']
   if (tile === 'backend') {
     const b = state.backend
     const on = b.status !== 'off'
@@ -52,9 +65,10 @@ function tileView(tile) {
   const d = state.desktop
   if (d.tile !== tile) return { status: tile === pendingTile ? 'starting' : 'off', where: '', other: false }
   let where = tile === 'prod' ? '' : shortWt(d.worktree)
+  if (tile === 'local-local' && d.backendWorktree) where += ` → ${shortWt(d.backendWorktree)}`
   if (d.waitingForBackend) where = `${where} · waiting for backend`
   if (d.external) where = `${where} · started outside launcher`
-  return { status: d.status, where, other: tile !== 'prod' && d.status !== 'off' && d.worktree !== selected }
+  return { status: d.status, where, other: tile !== 'prod' && d.status !== 'off' && (d.worktree !== selected || (tile === 'local-local' && !!d.backendWorktree && d.backendWorktree !== state.settings.backendWorktree)) }
 }
 
 function renderTiles() {
@@ -64,7 +78,7 @@ function renderTiles() {
     el.dataset.other = String(other)
     el.querySelector('.pill').textContent = STATUS_LABEL[status] ?? status
     el.querySelector('.tile-where').textContent = where
-    el.title = other ? 'Running from a different worktree than the one selected' : el.dataset.hint ?? ''
+    el.title = [el.dataset.hint, where, other ? 'Running with a different worktree selection' : ''].filter(Boolean).join(' · ')
   }
 }
 

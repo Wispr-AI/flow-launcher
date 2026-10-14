@@ -1,0 +1,122 @@
+const test = require('node:test')
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+const vm = require('node:vm')
+
+// Exercise the real launcher without starting Electron, Docker, or a desktop app.
+function launcher(saved = {}) {
+  const handlers = {}
+  let persisted
+  const context = vm.createContext({
+    require(name) {
+      if (name === 'electron') return {
+        app: { getPath: () => '/settings', on() {}, whenReady: () => ({ then() {} }) },
+        ipcMain: { handle: (name, fn) => { handlers[name] = fn } },
+      }
+      if (name === 'fs') return {
+        ...fs,
+        readFileSync: (file, ...args) => file === '/settings/settings.json' ? JSON.stringify(saved) : fs.readFileSync(file, ...args),
+        mkdirSync() {},
+        writeFileSync: (_file, data) => { persisted = JSON.parse(data) },
+      }
+      if (name === './authProfiles') return {}
+      return require(name)
+    },
+    process: { env: {} }, __dirname: path.join(__dirname, '../src'),
+    setTimeout, clearTimeout, setInterval, AbortSignal,
+  })
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/main.js'), 'utf8'), context)
+  vm.runInContext(`
+    loadSettings()
+    globalThis.calls = []
+    log = () => {}
+    clearLog = () => {}
+    poll = async () => {}
+    swapLogin = async () => 'test login'
+    startBackend = async (wt) => { calls.push(['backend', wt]); return true }
+    backendEnv = async (wt) => {
+      calls.push(['env', wt])
+      return { BASE_WEB_URL: 'http://127.0.0.1:8100', LOCAL_WEBSOCKET_HOST: 'ws://127.0.0.1:8100/', SUPABASE_URL: 'http://127.0.0.1:9100' }
+    }
+    spawnShell = (command, options) => {
+      calls.push(['spawn', command, options])
+      return { exited: new Promise(() => {}) }
+    }
+    stopDesktop = async () => { calls.push(['stopDesktop']); ownDesktop = null; state.desktop.status = 'off' }
+    confirm = async () => { calls.push(['confirm']); return true }
+  `, context)
+  return {
+    run: (code) => vm.runInContext(code, context), handlers,
+    calls: () => JSON.parse(JSON.stringify(context.calls)),
+    persisted: () => persisted,
+  }
+}
+
+test('legacy selection migrates to both services and independent selections persist', () => {
+  const app = launcher({ worktree: '/legacy', flags: [{ name: 'flag', state: 'on' }], backendArgs: '--skip-build' })
+  assert.equal(app.run('settings.backendWorktree'), '/legacy')
+  assert.equal(app.run('settings.desktopWorktree'), '/legacy')
+  app.handlers['set-worktree'](null, 'backend', '/backend')
+  app.handlers['set-worktree'](null, 'desktop', '/frontend')
+  assert.deepEqual(app.persisted(), {
+    backendWorktree: '/backend', desktopWorktree: '/frontend',
+    flags: [{ name: 'flag', state: 'on' }], logsOpen: true, backendArgs: '--skip-build',
+  })
+  const reopened = launcher(app.persisted())
+  assert.equal(reopened.run('settings.backendWorktree'), '/backend')
+  assert.equal(reopened.run('settings.desktopWorktree'), '/frontend')
+})
+
+test('local desktop launches in frontend checkout with selected backend ports and auth', async () => {
+  const app = launcher({ backendWorktree: '/backend', desktopWorktree: '/frontend', flags: [{ name: 'flag', state: 'on' }] })
+  await app.run("toggle('local-local')")
+  const calls = app.calls()
+  assert.deepEqual(calls.slice(0, 2), [['backend', '/backend'], ['env', '/backend']])
+  assert.equal(calls[2][1], 'yarn start dev-backend')
+  assert.equal(calls[2][2].cwd, '/frontend/desktop')
+  assert.equal(calls[2][2].env.BASE_WEB_URL, 'http://127.0.0.1:8100')
+  assert.equal(calls[2][2].env.LOCAL_WEBSOCKET_HOST, 'ws://127.0.0.1:8100/')
+  assert.equal(calls[2][2].env.SUPABASE_URL, 'http://127.0.0.1:9100')
+  assert.equal(calls[2][2].env.DEV_LOCAL_SIGNIN_EMAIL, 'dev@wispr.ai')
+  assert.equal(calls[2][2].env.WISPR_FEATURE_FLAGS, 'flag')
+  app.run(`lastScan.localDesktops = [{ worktree: '/frontend' }]; reconcileDesktop()`)
+  assert.equal(app.run('state.desktop.backendWorktree'), '/backend')
+  assert.equal(app.run('state.desktop.status'), 'running')
+})
+
+test('backend-only launch uses backend selection', async () => {
+  const app = launcher({ backendWorktree: '/backend', desktopWorktree: '/frontend' })
+  await app.run("toggle('backend')")
+  assert.deepEqual(app.calls(), [['backend', '/backend']])
+})
+
+for (const [tile, command] of [['local-prod', 'yarn start'], ['local-staging', 'yarn start staging-backend']]) {
+  test(`${tile} launches frontend without starting or reading local backend`, async () => {
+    const app = launcher({ backendWorktree: '/backend', desktopWorktree: '/frontend' })
+    await app.run(`toggle('${tile}')`)
+    const calls = app.calls()
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0][1], command)
+    assert.equal(calls[0][2].cwd, '/frontend/desktop')
+    assert.deepEqual(calls[0][2].env, {})
+  })
+}
+
+test('changing only backend selection restarts desktop with new backend; unchanged pair stops', async () => {
+  const app = launcher({ backendWorktree: '/backend', desktopWorktree: '/frontend' })
+  app.run(`Object.assign(state.desktop, { tile: 'local-local', status: 'running', worktree: '/frontend', backendWorktree: '/old-backend' })`)
+  await app.run("toggle('local-local')")
+  assert.deepEqual(app.calls().slice(0, 4), [['confirm'], ['stopDesktop'], ['backend', '/backend'], ['env', '/backend']])
+  app.run('calls.length = 0')
+  await app.run("toggle('local-local')")
+  assert.deepEqual(app.calls(), [['stopDesktop']])
+})
+
+test('failed backend prevents frontend launch', async () => {
+  const app = launcher({ backendWorktree: '/backend', desktopWorktree: '/frontend' })
+  app.run('startBackend = async () => false')
+  await app.run("toggle('local-local')")
+  assert.deepEqual(app.calls(), [])
+  assert.equal(app.run('state.desktop.waitingForBackend'), false)
+})

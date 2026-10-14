@@ -34,11 +34,17 @@ let win = null
 // ---------------------------------------------------------------- settings
 
 const settingsPath = () => path.join(app.getPath('userData'), 'settings.json')
-let settings = { worktree: ARIA_ROOT, flags: [], logsOpen: true, backendArgs: '' }
+let settings = { backendWorktree: ARIA_ROOT, desktopWorktree: ARIA_ROOT, flags: [], logsOpen: true, backendArgs: '' }
 
 function loadSettings() {
   try {
-    settings = { ...settings, ...JSON.parse(fs.readFileSync(settingsPath(), 'utf8')) }
+    const saved = JSON.parse(fs.readFileSync(settingsPath(), 'utf8'))
+    settings = {
+      ...settings, ...saved,
+      backendWorktree: saved.backendWorktree ?? saved.worktree ?? ARIA_ROOT,
+      desktopWorktree: saved.desktopWorktree ?? saved.worktree ?? ARIA_ROOT,
+    }
+    delete settings.worktree
   } catch {}
 }
 
@@ -224,10 +230,10 @@ async function backendEnv(worktree) {
 
 const state = {
   backend: { status: 'off', worktree: null, port: null, external: false, others: [] },
-  desktop: { tile: null, status: 'off', worktree: null, external: false },
+  desktop: { tile: null, status: 'off', worktree: null, backendWorktree: null, external: false },
 }
 let busy = { backend: false, desktop: false }
-let ownDesktop = null // { child, tile, worktree }
+let ownDesktop = null // { child, tile, worktree, backendWorktree }
 let ownBackendUp = null // child running `wispr-dev up`
 let backendTail = null // { child, worktree }
 let prodTail = null
@@ -304,16 +310,16 @@ function reconcileDesktop() {
 
   if (ownDesktop) {
     const electron = localDesktops.find((d) => d.worktree === ownDesktop.worktree)
-    setDesktop({ tile: ownDesktop.tile, worktree: ownDesktop.worktree, status: electron ? 'running' : 'starting', external: false })
+    setDesktop({ tile: ownDesktop.tile, worktree: ownDesktop.worktree, backendWorktree: ownDesktop.backendWorktree, status: electron ? 'running' : 'starting', external: false })
     return
   }
   const local = localDesktops[0]
   if (local) {
-    setDesktop({ tile: local.tile, worktree: local.worktree, status: 'running', external: true })
+    setDesktop({ tile: local.tile, worktree: local.worktree, backendWorktree: null, status: 'running', external: true })
   } else if (prodPids.length) {
-    setDesktop({ tile: 'prod', worktree: null, status: 'running', external: false })
+    setDesktop({ tile: 'prod', worktree: null, backendWorktree: null, status: 'running', external: false })
   } else {
-    setDesktop({ tile: null, worktree: null, status: 'off', external: false })
+    setDesktop({ tile: null, worktree: null, backendWorktree: null, status: 'off', external: false })
   }
 }
 
@@ -482,11 +488,11 @@ async function swapLogin(tile) {
   }
 }
 
-async function startDesktop(tile, worktree) {
+async function startDesktop(tile, worktree, backendWorktree) {
   const loginNote = await swapLogin(tile)
   if (tile === 'prod') {
     busy.desktop = true
-    setDesktop({ tile, status: 'starting', worktree: null, external: false })
+    setDesktop({ tile, status: 'starting', worktree: null, backendWorktree: null, external: false })
     note('desktop', loginNote)
     note('desktop', 'Opening installed Wispr Flow')
     await run('open', ['-a', PROD_APP])
@@ -500,8 +506,8 @@ async function startDesktop(tile, worktree) {
   let env = {}
   if (useLocalBackend) {
     busy.desktop = true
-    setDesktop({ tile, worktree, status: 'starting', external: false, waitingForBackend: true })
-    const ok = await startBackend(worktree)
+    setDesktop({ tile, worktree, backendWorktree, status: 'starting', external: false, waitingForBackend: true })
+    const ok = await startBackend(backendWorktree)
     busy.desktop = false
     setDesktop({ waitingForBackend: false })
     if (!ok) {
@@ -509,7 +515,7 @@ async function startDesktop(tile, worktree) {
       note('desktop', 'Not starting desktop: local backend failed to start (see Backend logs)')
       return
     }
-    env = { ...(await backendEnv(worktree)), ...DEV_SIGNIN_ENV }
+    env = { ...(await backendEnv(backendWorktree)), ...DEV_SIGNIN_ENV }
   }
   env = { ...env, ...featureFlagEnv() }
 
@@ -522,8 +528,8 @@ async function startDesktop(tile, worktree) {
     env,
     logKey: 'desktop',
   })
-  ownDesktop = { child, tile, worktree }
-  setDesktop({ tile, worktree, status: 'starting', external: false })
+  ownDesktop = { child, tile, worktree, backendWorktree: useLocalBackend ? backendWorktree : null }
+  setDesktop({ tile, worktree, backendWorktree: ownDesktop.backendWorktree, status: 'starting', external: false })
   child.exited.then(({ code, signal }) => {
     note('desktop', `Local desktop exited (${signal ?? `code ${code}`})`)
     if (ownDesktop?.child === child) ownDesktop = null
@@ -539,7 +545,8 @@ async function toggle(tile) {
   toggling = true
   try {
     await poll()
-    const worktree = settings.worktree
+    const worktree = tile === 'backend' ? settings.backendWorktree : settings.desktopWorktree
+    const backendWorktree = settings.backendWorktree
     if (tile === 'backend') {
       if (['running', 'starting'].includes(state.backend.status) && state.backend.worktree === worktree) await stopBackend()
       else await startBackend(worktree)
@@ -549,6 +556,7 @@ async function toggle(tile) {
     const d = state.desktop
     const active = d.status !== 'off'
     const sameTile = d.tile === tile && (tile === 'prod' || d.worktree === worktree)
+      && (tile !== 'local-local' || d.backendWorktree === backendWorktree)
     if (active && sameTile) {
       await stopDesktop()
       return
@@ -557,13 +565,13 @@ async function toggle(tile) {
       const current = d.tile === 'prod' ? TILE_LABELS.prod : `${TILE_LABELS[d.tile]} (${shortWt(d.worktree)})`
       const ok = await confirm(
         `${current} is running`,
-        `It will be quit before starting ${TILE_LABELS[tile]}${tile === 'prod' ? '' : ` (${shortWt(worktree)})`}.`,
+        `It will be quit before starting ${TILE_LABELS[tile]}${tile === 'prod' ? '' : ` (${shortWt(worktree)})`}${tile === 'local-local' ? ` connected to ${shortWt(backendWorktree)}` : ''}.`,
         'Quit it and continue'
       )
       if (!ok) return
       await stopDesktop()
     }
-    await startDesktop(tile, worktree)
+    await startDesktop(tile, worktree, backendWorktree)
   } catch (err) {
     note('launcher', `ERROR: ${err.stack ?? err}`)
   } finally {
@@ -606,16 +614,17 @@ ipcMain.handle('init', async () => ({
   state: { ...state, settings },
   logs,
   worktrees: await listWorktrees(),
-  knownFlags: knownFlags(settings.worktree),
+  knownFlags: knownFlags(settings.desktopWorktree),
   ariaRoot: ARIA_ROOT,
 }))
 ipcMain.handle('worktrees', () => listWorktrees())
 ipcMain.handle('toggle', (_e, tile) => toggle(tile))
-ipcMain.handle('set-worktree', (_e, wt) => {
-  settings.worktree = wt
+ipcMain.handle('set-worktree', (_e, service, wt) => {
+  if (!['backend', 'desktop'].includes(service) || typeof wt !== 'string') throw new Error('Invalid worktree selection')
+  settings[`${service}Worktree`] = wt
   saveSettings()
   pushState()
-  return knownFlags(wt)
+  return knownFlags(settings.desktopWorktree)
 })
 ipcMain.handle('set-flags', (_e, flags) => {
   settings.flags = flags
@@ -656,7 +665,9 @@ app.whenReady().then(async () => {
   // Packaged builds get the icon from the .icns; this covers `npm start`.
   if (!app.isPackaged) app.dock?.setIcon(path.join(__dirname, '..', 'build', 'icon.png'))
   loadSettings()
-  if (!fs.existsSync(settings.worktree)) settings.worktree = ARIA_ROOT
+  for (const key of ['backendWorktree', 'desktopWorktree']) {
+    if (!fs.existsSync(settings[key])) settings[key] = ARIA_ROOT
+  }
   await adoptLoginShellPath()
   createWindow()
   note('launcher', `PATH resolved; aria-flow at ${ARIA_ROOT}`)
