@@ -567,13 +567,16 @@ function isRunning(tile) {
 
 /**
  * Asks how to start `tile` next to the desktops already running. Another local build must quit
- * (they share ports and the dev profile); the installed app may stay. Returns the tiles to quit
- * first, or null if cancelled.
+ * (they share ports and the dev profile), and so must the installed app when either side is
+ * Local → local: its dev@wispr.ai sign-in replaces the real login in the shared login file.
+ * Anything else may stay. Returns the tiles to quit first, or null if cancelled.
  */
 async function resolveConflicts(tile) {
   const runningLocal = state.desktop.status !== 'off' ? state.desktop.tile : null
-  const mustQuit = isLocalTile(tile) && runningLocal ? [runningLocal] : []
-  const mayQuit = (tile === 'prod' ? [runningLocal] : [isRunning('prod') && 'prod']).filter(Boolean)
+  const others = [runningLocal, isRunning('prod') && 'prod'].filter(Boolean)
+  const clashes = (t) => (isLocalTile(t) && isLocalTile(tile)) || [t, tile].includes('local-local')
+  const mustQuit = others.filter(clashes)
+  const mayQuit = others.filter((t) => !clashes(t))
   const all = [...mustQuit, ...mayQuit]
   if (!all.length) return []
   const names = (tiles) => tiles.map(desktopLabel).join(' and ')
@@ -586,7 +589,13 @@ async function resolveConflicts(tile) {
     defaultId: 0,
     cancelId: buttons.length - 1,
     message: `${names(all)} ${all.length > 1 ? 'are' : 'is'} running`,
-    detail: `Starting ${TILE_LABELS[tile]}.${mayQuit.length ? ' The installed app and a local build can run side by side, but they share one login file.' : ''}`,
+    detail: [
+      `Starting ${TILE_LABELS[tile]}.`,
+      mustQuit.includes('prod') || (tile === 'prod' && mustQuit.length)
+        ? 'Local → local signs in as dev@wispr.ai, which would sign the installed app out, so they can\'t run together.'
+        : '',
+      mayQuit.length ? 'The installed app and this local build can run side by side.' : '',
+    ].filter(Boolean).join(' '),
   })
   if (response === buttons.length - 1) return null
   return response === 0 ? all : mustQuit

@@ -171,6 +171,18 @@ test('second local build with the installed app running offers to keep the insta
   assert.equal(calls.length, 3)
 })
 
+test('Local → local and the installed app never run together', async () => {
+  const app = launcher({ backendWorktree: '/backend', desktopWorktree: '/frontend' })
+  app.run("state.installed.status = 'running'")
+  await app.run("toggle('local-local')")
+  assert.deepEqual(app.calls().slice(0, 2), [['dialog', ['Quit Wispr Flow (installed) and start', 'Cancel']], ['stop', 'prod']])
+
+  const other = launcher({ backendWorktree: '/backend', desktopWorktree: '/frontend' })
+  runLocal(other, 'local-local')
+  await other.run("toggle('prod')")
+  assert.deepEqual(other.calls().slice(0, 2), [['dialog', ['Quit Local desktop → local backend (frontend) and start', 'Cancel']], ['stop', 'local-local']])
+})
+
 test('failed backend prevents frontend launch', async () => {
   const app = launcher({ backendWorktree: '/backend', desktopWorktree: '/frontend' })
   app.run('startBackend = async () => false')
