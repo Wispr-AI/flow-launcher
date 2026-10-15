@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('launcher', {
   init: () => ipcRenderer.invoke('init'),
   worktrees: () => ipcRenderer.invoke('worktrees'),
-  toggle: (tile) => ipcRenderer.invoke('toggle', tile),
+  toggle: (tile, action) => ipcRenderer.invoke('toggle', tile, action),
   setWorktree: (service, wt) => ipcRenderer.invoke('set-worktree', service, wt),
   setFlags: (flags) => ipcRenderer.invoke('set-flags', flags),
   setBackendArgs: (args) => ipcRenderer.invoke('set-backend-args', args),

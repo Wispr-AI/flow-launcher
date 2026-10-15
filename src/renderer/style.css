@@ -120,6 +120,20 @@ main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 }
 .tile:hover { background: color-mix(in srgb, var(--env) 9%, var(--panel)); border-color: color-mix(in srgb, var(--env) 35%, var(--border)); }
 .tile:active { transform: translateY(1px); }
+.tile { cursor: pointer; user-select: none; }
+.tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tile-actions { position: absolute; top: 10px; right: 10px; display: none; gap: 4px; }
+.tile:is([data-status='running'], [data-status='starting']):is(:hover, :focus-within) .tile-actions { display: flex; }
+.tile-actions button {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--env) 35%, var(--border));
+  background: color-mix(in srgb, var(--env) 12%, var(--panel-2));
+  color: var(--text);
+}
+.tile-actions button:hover { background: color-mix(in srgb, var(--env) 25%, var(--panel-2)); }
+.tile-actions button[data-action='stop']:hover { border-color: color-mix(in srgb, var(--red) 60%, transparent); }
 .tile-title { font-size: 18px; font-weight: 600; color: color-mix(in srgb, var(--env) 70%, var(--text)); }
 .tile-foot { margin-top: auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .tile-where { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

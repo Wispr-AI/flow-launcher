@@ -230,9 +230,11 @@ async function backendEnv(worktree) {
 
 const state = {
   backend: { status: 'off', worktree: null, port: null, external: false, others: [] },
+  // The installed app and a local build can run side by side; two local builds cannot.
+  installed: { status: 'off' },
   desktop: { tile: null, status: 'off', worktree: null, backendWorktree: null, external: false },
 }
-let busy = { backend: false, desktop: false }
+let busy = { backend: false, installed: false, desktop: false }
 let ownDesktop = null // { child, tile, worktree, backendWorktree }
 let ownBackendUp = null // child running `wispr-dev up`
 let backendTail = null // { child, worktree }
@@ -246,6 +248,11 @@ function pushState() {
 
 function setBackend(patch) {
   Object.assign(state.backend, patch)
+  pushState()
+}
+
+function setInstalled(patch) {
+  Object.assign(state.installed, patch)
   pushState()
 }
 
@@ -306,6 +313,7 @@ function reconcileDesktop() {
   const { prodPids, localDesktops } = lastScan
   if (prodPids.length && !prodTail) startProdTail()
   if (!prodPids.length && prodTail) stopProdTail()
+  if (!busy.installed) setInstalled({ status: prodPids.length ? 'running' : 'off' })
   if (busy.desktop) return
 
   if (ownDesktop) {
@@ -316,8 +324,6 @@ function reconcileDesktop() {
   const local = localDesktops[0]
   if (local) {
     setDesktop({ tile: local.tile, worktree: local.worktree, backendWorktree: null, status: 'running', external: true })
-  } else if (prodPids.length) {
-    setDesktop({ tile: 'prod', worktree: null, backendWorktree: null, status: 'running', external: false })
   } else {
     setDesktop({ tile: null, worktree: null, backendWorktree: null, status: 'off', external: false })
   }
@@ -421,38 +427,49 @@ async function stopBackend(worktree = state.backend.worktree) {
 
 // ---------------------------------------------------------------- desktop actions
 
-async function stopDesktop() {
-  const { tile, worktree, external } = state.desktop
+function stopDesktop(tile) {
+  return tile === 'prod' ? stopInstalled() : stopLocal()
+}
+
+async function stopInstalled() {
+  busy.installed = true
+  setInstalled({ status: 'stopping' })
+  try {
+    note('desktop', 'Quitting installed Wispr Flow…')
+    await run('osascript', ['-e', `tell application id "${PROD_BUNDLE_ID}" to quit`], { timeout: 8000 })
+    const gone = await waitFor(async () => !(await scanProcesses()).prodPids.length, 8000)
+    if (!gone) {
+      note('desktop', 'Did not quit in time — terminating')
+      await killPids(() => scanProcesses().then((p) => p.prodPids))
+    }
+  } finally {
+    busy.installed = false
+    await poll()
+  }
+}
+
+async function stopLocal() {
+  const { worktree, external } = state.desktop
   busy.desktop = true
   setDesktop({ status: 'stopping' })
   try {
-    if (tile === 'prod') {
-      note('desktop', 'Quitting installed Wispr Flow…')
-      await run('osascript', ['-e', `tell application id "${PROD_BUNDLE_ID}" to quit`], { timeout: 8000 })
-      const gone = await waitFor(async () => !(await scanProcesses()).prodPids.length, 8000)
-      if (!gone) {
-        note('desktop', 'Did not quit in time — terminating')
-        await killPids(() => scanProcesses().then((p) => p.prodPids))
-      }
-    } else {
-      note('desktop', `Stopping local desktop (${shortWt(worktree)})…`)
-      const pidsFor = async () => {
-        const { stdout } = await run('ps', ['-axww', '-o', 'pid=,command='])
-        const desktopDir = `${worktree}/desktop/`
-        return stdout
-          .split('\n')
-          .map((l) => l.match(/^\s*(\d+)\s+(.*)$/))
-          .filter((m) => m && (m[2].startsWith(`${desktopDir}node_modules/electron/dist/Electron.app/Contents/MacOS/Electron`) || m[2].startsWith(`${desktopDir}swift-helper-app-dist/`)))
-          .map((m) => Number(m[1]))
-      }
-      if (ownDesktop && !external) killGroup(ownDesktop.child)
-      await killPids(pidsFor)
-      if (ownDesktop) {
-        const exited = await Promise.race([ownDesktop.child.exited.then(() => true), sleep(5000).then(() => false)])
-        if (!exited) killGroup(ownDesktop.child, 'SIGKILL')
-      }
-      ownDesktop = null
+    note('desktop', `Stopping local desktop (${shortWt(worktree)})…`)
+    const pidsFor = async () => {
+      const { stdout } = await run('ps', ['-axww', '-o', 'pid=,command='])
+      const desktopDir = `${worktree}/desktop/`
+      return stdout
+        .split('\n')
+        .map((l) => l.match(/^\s*(\d+)\s+(.*)$/))
+        .filter((m) => m && (m[2].startsWith(`${desktopDir}node_modules/electron/dist/Electron.app/Contents/MacOS/Electron`) || m[2].startsWith(`${desktopDir}swift-helper-app-dist/`)))
+        .map((m) => Number(m[1]))
     }
+    if (ownDesktop && !external) killGroup(ownDesktop.child)
+    await killPids(pidsFor)
+    if (ownDesktop) {
+      const exited = await Promise.race([ownDesktop.child.exited.then(() => true), sleep(5000).then(() => false)])
+      if (!exited) killGroup(ownDesktop.child, 'SIGKILL')
+    }
+    ownDesktop = null
   } finally {
     busy.desktop = false
     await poll()
@@ -491,13 +508,13 @@ async function swapLogin(tile) {
 async function startDesktop(tile, worktree, backendWorktree) {
   const loginNote = await swapLogin(tile)
   if (tile === 'prod') {
-    busy.desktop = true
-    setDesktop({ tile, status: 'starting', worktree: null, backendWorktree: null, external: false })
+    busy.installed = true
+    setInstalled({ status: 'starting' })
     note('desktop', loginNote)
     note('desktop', 'Opening installed Wispr Flow')
     await run('open', ['-a', PROD_APP])
     await waitFor(async () => (await scanProcesses()).prodPids.length > 0, 15000)
-    busy.desktop = false
+    busy.installed = false
     await poll()
     return
   }
@@ -539,38 +556,68 @@ async function startDesktop(tile, worktree, backendWorktree) {
 
 // ---------------------------------------------------------------- toggle
 
+const isLocalTile = (tile) => tile !== 'prod' && tile !== 'backend'
+const desktopLabel = (tile) => (tile === 'prod' ? TILE_LABELS.prod : `${TILE_LABELS[tile]} (${shortWt(state.desktop.worktree)})`)
+
+function isRunning(tile) {
+  if (tile === 'backend') return ['running', 'starting'].includes(state.backend.status)
+  if (tile === 'prod') return state.installed.status !== 'off'
+  return state.desktop.tile === tile && state.desktop.status !== 'off'
+}
+
+/**
+ * Asks how to start `tile` next to the desktops already running. Another local build must quit
+ * (they share ports and the dev profile); the installed app may stay. Returns the tiles to quit
+ * first, or null if cancelled.
+ */
+async function resolveConflicts(tile) {
+  const runningLocal = state.desktop.status !== 'off' ? state.desktop.tile : null
+  const mustQuit = isLocalTile(tile) && runningLocal ? [runningLocal] : []
+  const mayQuit = (tile === 'prod' ? [runningLocal] : [isRunning('prod') && 'prod']).filter(Boolean)
+  const all = [...mustQuit, ...mayQuit]
+  if (!all.length) return []
+  const names = (tiles) => tiles.map(desktopLabel).join(' and ')
+  const buttons = [`Quit ${names(all)} and start`]
+  if (mayQuit.length) buttons.push(mustQuit.length ? `Quit ${names(mustQuit)} only and start` : 'Start alongside')
+  buttons.push('Cancel')
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'question',
+    buttons,
+    defaultId: 0,
+    cancelId: buttons.length - 1,
+    message: `${names(all)} ${all.length > 1 ? 'are' : 'is'} running`,
+    detail: `Starting ${TILE_LABELS[tile]}.${mayQuit.length ? ' The installed app and a local build can run side by side, but they share one login file.' : ''}`,
+  })
+  if (response === buttons.length - 1) return null
+  return response === 0 ? all : mustQuit
+}
+
 let toggling = false
-async function toggle(tile) {
+/** action: 'click' (stop if running, else start), 'stop' or 'restart'. */
+async function toggle(tile, action = 'click') {
   if (toggling) return
   toggling = true
   try {
     await poll()
     const worktree = tile === 'backend' ? settings.backendWorktree : settings.desktopWorktree
     const backendWorktree = settings.backendWorktree
-    if (tile === 'backend') {
-      if (['running', 'starting'].includes(state.backend.status) && state.backend.worktree === worktree) await stopBackend()
-      else await startBackend(worktree)
+    const running = isRunning(tile)
+    if (action === 'stop' || (action === 'click' && running)) {
+      if (running) await (tile === 'backend' ? stopBackend() : stopDesktop(tile))
       return
     }
 
-    const d = state.desktop
-    const active = d.status !== 'off'
-    const sameTile = d.tile === tile && (tile === 'prod' || d.worktree === worktree)
-      && (tile !== 'local-local' || d.backendWorktree === backendWorktree)
-    if (active && sameTile) {
-      await stopDesktop()
+    if (tile === 'backend') {
+      if (running) await stopBackend()
+      await startBackend(worktree)
       return
     }
-    if (active) {
-      const current = d.tile === 'prod' ? TILE_LABELS.prod : `${TILE_LABELS[d.tile]} (${shortWt(d.worktree)})`
-      const ok = await confirm(
-        `${current} is running`,
-        `It will be quit before starting ${TILE_LABELS[tile]}${tile === 'prod' ? '' : ` (${shortWt(worktree)})`}${tile === 'local-local' ? ` connected to ${shortWt(backendWorktree)}` : ''}.`,
-        'Quit it and continue'
-      )
-      if (!ok) return
-      await stopDesktop()
-    }
+
+    if (running) await stopDesktop(tile)
+    // A restart keeps whatever was already running alongside it.
+    const toQuit = action === 'restart' ? [] : await resolveConflicts(tile)
+    if (!toQuit) return
+    for (const t of toQuit) await stopDesktop(t)
     await startDesktop(tile, worktree, backendWorktree)
   } catch (err) {
     note('launcher', `ERROR: ${err.stack ?? err}`)
@@ -618,7 +665,10 @@ ipcMain.handle('init', async () => ({
   ariaRoot: ARIA_ROOT,
 }))
 ipcMain.handle('worktrees', () => listWorktrees())
-ipcMain.handle('toggle', (_e, tile) => toggle(tile))
+ipcMain.handle('toggle', (_e, tile, action) => {
+  if (!['click', 'stop', 'restart'].includes(action)) throw new Error('Invalid action')
+  return toggle(tile, action)
+})
 ipcMain.handle('set-worktree', (_e, service, wt) => {
   if (!['backend', 'desktop'].includes(service) || typeof wt !== 'string') throw new Error('Invalid worktree selection')
   settings[`${service}Worktree`] = wt
@@ -651,7 +701,7 @@ app.on('before-quit', async (e) => {
   if (ownDesktop && !quitting) {
     e.preventDefault()
     quitting = true
-    await stopDesktop().catch(() => {})
+    await stopLocal().catch(() => {})
     app.quit()
   }
 })

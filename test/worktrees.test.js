@@ -13,6 +13,7 @@ function launcher(saved = {}) {
       if (name === 'electron') return {
         app: { getPath: () => '/settings', on() {}, whenReady: () => ({ then() {} }) },
         ipcMain: { handle: (name, fn) => { handlers[name] = fn } },
+        dialog: { showMessageBox: async (_win, opts) => { context.calls.push(['dialog', opts.buttons]); return { response: context.dialogResponse ?? 0 } } },
       }
       if (name === 'fs') return {
         ...fs,
@@ -43,7 +44,11 @@ function launcher(saved = {}) {
       calls.push(['spawn', command, options])
       return { exited: new Promise(() => {}) }
     }
-    stopDesktop = async () => { calls.push(['stopDesktop']); ownDesktop = null; state.desktop.status = 'off' }
+    stopDesktop = async (tile) => {
+      calls.push(['stop', tile])
+      if (tile === 'prod') state.installed.status = 'off'
+      else { ownDesktop = null; state.desktop.status = 'off' }
+    }
     confirm = async () => { calls.push(['confirm']); return true }
   `, context)
   return {
@@ -103,14 +108,67 @@ for (const [tile, command] of [['local-prod', 'yarn start'], ['local-staging', '
   })
 }
 
-test('changing only backend selection restarts desktop with new backend; unchanged pair stops', async () => {
+const runLocal = (app, tile = 'local-local') =>
+  app.run(`Object.assign(state.desktop, { tile: '${tile}', status: 'running', worktree: '/frontend', backendWorktree: '/old-backend' })`)
+
+test('clicking a running tile stops it, even with a different worktree selected', async () => {
+  const app = launcher({ backendWorktree: '/backend', desktopWorktree: '/other' })
+  runLocal(app)
+  await app.run("toggle('local-local')")
+  assert.deepEqual(app.calls(), [['stop', 'local-local']])
+})
+
+test('restart stops and starts with the current selections, without asking', async () => {
   const app = launcher({ backendWorktree: '/backend', desktopWorktree: '/frontend' })
-  app.run(`Object.assign(state.desktop, { tile: 'local-local', status: 'running', worktree: '/frontend', backendWorktree: '/old-backend' })`)
-  await app.run("toggle('local-local')")
-  assert.deepEqual(app.calls().slice(0, 4), [['confirm'], ['stopDesktop'], ['backend', '/backend'], ['env', '/backend']])
-  app.run('calls.length = 0')
-  await app.run("toggle('local-local')")
-  assert.deepEqual(app.calls(), [['stopDesktop']])
+  runLocal(app)
+  app.run("state.installed.status = 'running'")
+  await app.run("toggle('local-local', 'restart')")
+  assert.deepEqual(app.calls().slice(0, 3), [['stop', 'local-local'], ['backend', '/backend'], ['env', '/backend']])
+})
+
+test('starting a second local build must quit the first', async () => {
+  const app = launcher({ backendWorktree: '/backend', desktopWorktree: '/frontend' })
+  runLocal(app, 'local-prod')
+  await app.run("toggle('local-staging')")
+  const calls = app.calls()
+  assert.deepEqual(calls[0], ['dialog', ['Quit Local desktop → prod backend (frontend) and start', 'Cancel']])
+  assert.deepEqual(calls[1], ['stop', 'local-prod'])
+  assert.equal(calls[2][1], 'yarn start staging-backend')
+})
+
+for (const [response, expected] of [[0, [['stop', 'prod']]], [1, []]]) {
+  test(`local build next to the installed app: option ${response}`, async () => {
+    const app = launcher({ backendWorktree: '/backend', desktopWorktree: '/frontend' })
+    app.run(`state.installed.status = 'running'; dialogResponse = ${response}`)
+    await app.run("toggle('local-prod')")
+    const calls = app.calls()
+    assert.deepEqual(calls[0], ['dialog', ['Quit Wispr Flow (installed) and start', 'Start alongside', 'Cancel']])
+    assert.deepEqual(calls.slice(1, -1), expected)
+    assert.equal(calls.at(-1)[1], 'yarn start')
+  })
+}
+
+test('installed app next to a local build can start alongside; cancel does nothing', async () => {
+  const app = launcher({ backendWorktree: '/backend', desktopWorktree: '/frontend' })
+  runLocal(app, 'local-prod')
+  app.run('dialogResponse = 2')
+  await app.run("toggle('prod')")
+  assert.deepEqual(app.calls(), [['dialog', ['Quit Local desktop → prod backend (frontend) and start', 'Start alongside', 'Cancel']]])
+})
+
+test('second local build with the installed app running offers to keep the installed app', async () => {
+  const app = launcher({ backendWorktree: '/backend', desktopWorktree: '/frontend' })
+  runLocal(app, 'local-prod')
+  app.run("state.installed.status = 'running'; dialogResponse = 1")
+  await app.run("toggle('local-staging')")
+  const calls = app.calls()
+  assert.deepEqual(calls[0][1], [
+    'Quit Local desktop → prod backend (frontend) and Wispr Flow (installed) and start',
+    'Quit Local desktop → prod backend (frontend) only and start',
+    'Cancel',
+  ])
+  assert.deepEqual(calls[1], ['stop', 'local-prod'])
+  assert.equal(calls.length, 3)
 })
 
 test('failed backend prevents frontend launch', async () => {

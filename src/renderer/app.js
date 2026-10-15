@@ -62,6 +62,10 @@ function tileView(tile) {
     if (b.others.length) where += `${where ? ' · ' : ''}+${b.others.length} other running`
     return { status: b.status, where, other: on && b.worktree !== selected }
   }
+  if (tile === 'prod') {
+    const status = state.installed.status === 'off' && tile === pendingTile ? 'starting' : state.installed.status
+    return { status, where: '', other: false }
+  }
   const d = state.desktop
   if (d.tile !== tile) return { status: tile === pendingTile ? 'starting' : 'off', where: '', other: false }
   let where = tile === 'prod' ? '' : shortWt(d.worktree)
@@ -82,19 +86,41 @@ function renderTiles() {
   }
 }
 
-document.querySelectorAll('.tile').forEach((el) =>
-  el.addEventListener('click', async () => {
-    const tile = el.dataset.tile
-    if (el.dataset.status === 'off' || el.dataset.status === 'error') pendingTile = tile
+async function act(el, action) {
+  const tile = el.dataset.tile
+  const stopped = el.dataset.status === 'off' || el.dataset.status === 'error'
+  if (stopped && action === 'click') pendingTile = tile
+  renderTiles()
+  try {
+    await api.toggle(tile, action)
+  } finally {
+    pendingTile = null
     renderTiles()
-    try {
-      await api.toggle(tile)
-    } finally {
-      pendingTile = null
-      renderTiles()
-    }
+  }
+}
+
+// Clicking a tile starts it, or stops it when running. Stop/Restart appear on hover while running.
+for (const el of document.querySelectorAll('.tile')) {
+  const actions = document.createElement('div')
+  actions.className = 'tile-actions'
+  for (const [action, label] of [['restart', 'Restart'], ['stop', 'Stop']]) {
+    const b = document.createElement('button')
+    b.dataset.action = action
+    b.textContent = label
+    b.addEventListener('click', (e) => {
+      e.stopPropagation()
+      act(el, action)
+    })
+    actions.append(b)
+  }
+  el.append(actions)
+  el.addEventListener('click', () => act(el, 'click'))
+  el.addEventListener('keydown', (e) => {
+    if (e.target !== el || (e.key !== 'Enter' && e.key !== ' ')) return
+    e.preventDefault()
+    act(el, 'click')
   })
-)
+}
 
 // ---------------------------------------------------------------- backend args
 
