@@ -103,10 +103,12 @@ async function act(el, action) {
 for (const el of document.querySelectorAll('.tile')) {
   const actions = document.createElement('div')
   actions.className = 'tile-actions'
-  for (const [action, label] of [['restart', 'Restart'], ['stop', 'Stop']]) {
+  for (const [action, label, icon] of [['restart', 'Restart', '↻'], ['stop', 'Stop', '■']]) {
     const b = document.createElement('button')
     b.dataset.action = action
-    b.textContent = label
+    b.textContent = icon
+    b.title = label
+    b.setAttribute('aria-label', label)
     b.addEventListener('click', (e) => {
       e.stopPropagation()
       act(el, action)

@@ -16,7 +16,10 @@
         <div class="tiles" id="tiles">
           <div class="group">
             <div class="group-head-row">
-              <h2 class="group-head">Backend</h2>
+              <div class="head-picker">
+                <h2 class="group-head">Backend</h2>
+                <select id="backend-worktree" class="picker"></select>
+              </div>
               <label class="args" title="Appended to wispr-dev up. Takes effect the next time the backend starts.">
                 <span>args</span>
                 <input id="backend-args" placeholder="e.g. --with-soniox-tunnel" spellcheck="false" autocomplete="off" />
@@ -32,7 +35,11 @@
           <div class="group">
             <div class="group-tiles group-heads">
               <h2 class="group-head">Installed app</h2>
-              <h2 class="group-head span-rest">Local build</h2>
+              <div class="head-picker span-rest">
+                <h2 class="group-head">Local build</h2>
+                <select id="desktop-worktree" class="picker"></select>
+                <button id="refresh-worktrees" class="icon-btn" title="Refresh worktrees">↻</button>
+              </div>
             </div>
             <div class="group-tiles">
               <div class="tile" role="button" tabindex="0" data-tile="prod" data-env="installed" data-hint="/Applications/Wispr Flow.app · prod backend">
@@ -56,21 +63,6 @@
         </div>
 
         <div class="side">
-        <section class="panel worktree">
-          <div class="worktree-heading">
-            <h2>Worktrees / branches</h2>
-            <button id="refresh-worktrees" class="icon-btn" title="Refresh worktrees">↻</button>
-          </div>
-          <label class="worktree-row" for="backend-worktree">
-            <span>Backend</span>
-            <select id="backend-worktree"></select>
-          </label>
-          <label class="worktree-row" for="desktop-worktree">
-            <span>Frontend (desktop)</span>
-            <select id="desktop-worktree"></select>
-          </label>
-          <div class="hint">Applies on next launch. Local desktop connects to the selected backend.</div>
-        </section>
 
         <aside class="panel flags">
           <div class="flags-head">
