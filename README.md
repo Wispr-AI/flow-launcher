@@ -10,4 +10,5 @@ Choose backend and frontend (desktop) worktrees independently; each selector sho
 Settings (selected backend and frontend worktrees, feature flag overrides) persist in `~/Library/Application Support/Flow Launcher/settings.json`.
 Flag overrides are passed as `WISPR_FEATURE_FLAGS` and only reach local (development) desktop builds.
 
-<img width="1093" height="814" alt="image" src="https://github.com/user-attachments/assets/fa5c6de7-60e1-4883-9945-cc200eaf28f1" />
+<img width="1157" height="763" alt="image" src="https://github.com/user-attachments/assets/c3879e0a-749b-4f1c-948a-921137e45390" />
+
