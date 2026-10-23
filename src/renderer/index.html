@@ -38,6 +38,10 @@
               <div class="head-picker span-rest">
                 <h2 class="group-head">Local build</h2>
                 <select id="desktop-worktree" class="picker"></select>
+                <form id="pr-form" hidden>
+                  <input id="pr-input" class="picker" placeholder="Paste a GitHub PR link, then Enter" spellcheck="false" autocomplete="off" />
+                  <span id="pr-status" class="hint"></span>
+                </form>
                 <button id="refresh-worktrees" class="icon-btn" title="Refresh worktrees">↻</button>
               </div>
             </div>

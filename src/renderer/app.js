@@ -6,6 +6,7 @@ const NOISE_RE = /Failed to send logs to Better Stack/
 const ERR_PATTERN = /\b(error|exception|traceback|fatal|unhandled)\b|\bfailed\b(?!=0)/i
 const ERR_RE = { test: (line) => !NOISE_RE.test(line) && ERR_PATTERN.test(line) }
 const WARN_RE = /\bwarn(ing)?\b/i
+const PR_OPTION = '__pr__'
 const STATUS_LABEL = { off: 'Off', starting: 'Starting…', running: 'Running', stopping: 'Stopping…', error: 'Error' }
 
 let ariaRoot = ''
@@ -37,6 +38,7 @@ function renderWorktrees(list) {
       opt.textContent = `${shortWt(selected)} · unavailable`
       select.append(opt)
     }
+    if (service === 'desktop') select.append(new Option('Check out a GitHub PR…', PR_OPTION))
     select.value = selected ?? ''
     select.title = selected ?? ''
   }
@@ -44,12 +46,54 @@ function renderWorktrees(list) {
 
 for (const service of ['backend', 'desktop']) {
   $(`#${service}-worktree`).addEventListener('change', async (e) => {
+    if (e.target.value === PR_OPTION) {
+      e.target.value = state.settings.desktopWorktree
+      return showPrForm(true)
+    }
     setKnownFlags(await api.setWorktree(service, e.target.value))
     e.target.title = e.target.value
   })
 }
 $('#refresh-worktrees').addEventListener('click', async () => renderWorktrees(await api.worktrees()))
 window.addEventListener('focus', async () => renderWorktrees(await api.worktrees()))
+
+// ---------------------------------------------------------------- PR checkout
+
+function showPrForm(show) {
+  $('#desktop-worktree').hidden = show
+  $('#pr-form').hidden = !show
+  $('#pr-status').textContent = ''
+  if (show) $('#pr-input').focus()
+}
+
+$('#pr-form').addEventListener('submit', async (e) => {
+  e.preventDefault()
+  const input = $('#pr-input')
+  const status = $('#pr-status')
+  if (!input.value.trim()) return
+  input.disabled = true
+  status.className = 'hint'
+  status.textContent = 'Checking out… see Launcher logs'
+  document.querySelector('#log-tabs [data-key="launcher"]').click()
+  try {
+    const wt = await api.checkoutPr(input.value)
+    setKnownFlags(await api.setWorktree('desktop', wt))
+    renderWorktrees(await api.worktrees())
+    input.value = ''
+    showPrForm(false)
+  } catch (err) {
+    status.className = 'hint err'
+    status.textContent = status.title = err.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+  } finally {
+    input.disabled = false
+  }
+})
+$('#pr-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !e.target.disabled) showPrForm(false)
+})
+$('#pr-input').addEventListener('blur', (e) => {
+  if (!e.target.value.trim() && !e.target.disabled) showPrForm(false)
+})
 
 // ---------------------------------------------------------------- tiles
 

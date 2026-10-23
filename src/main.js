@@ -174,6 +174,34 @@ async function listWorktrees() {
   return out.filter((w) => fs.existsSync(path.join(w.path, 'scripts', 'wispr-dev')))
 }
 
+const PR_URL_RE = /^https:\/\/github\.com\/Wispr-AI\/aria-flow\/pull\/(\d+)(?:[/?#]|$)/i
+
+/**
+ * Gets a PR's branch into a worktree: reuses one that already has it, else checks it out into
+ * .worktrees/pr-<n> (refreshing it on a repeat) and installs desktop deps. Returns its path.
+ */
+async function checkoutPr(url) {
+  const n = url.trim().match(PR_URL_RE)?.[1]
+  if (!n) throw new Error('Expected a github.com/Wispr-AI/aria-flow/pull/<number> link')
+  note('launcher', `Looking up PR #${n}…`)
+  const view = await run('gh', ['pr', 'view', n, '--json', 'headRefName', '-q', '.headRefName'], { cwd: ARIA_ROOT })
+  if (view.code) throw new Error(`gh pr view failed: ${view.stderr.trim()}`)
+  const branch = view.stdout.trim()
+  const dir = `.worktrees/pr-${n}`
+  const prPath = path.join(ARIA_ROOT, dir)
+  const elsewhere = (await listWorktrees()).find((w) => w.branch === branch && w.path !== prPath)
+  if (elsewhere) {
+    note('launcher', `PR #${n} (${branch}) is already checked out at ${elsewhere.path}`)
+    return elsewhere.path
+  }
+  const add = fs.existsSync(prPath) ? '' : `git worktree add --detach ${dir} && `
+  const setup = 'WORKTREESETUP_PROJECTS=desktop WORKTREESETUP_SKIP_FETCH=1 ./.worktreesetup'
+  const { code } = await spawnShell(`${add}cd ${dir} && gh pr checkout ${n} && ${setup}`, { cwd: ARIA_ROOT, logKey: 'launcher' }).exited
+  if (code !== 0) throw new Error(`Setting up PR #${n} failed (see Launcher logs)`)
+  note('launcher', `PR #${n} (${branch}) is ready at ${prPath}`)
+  return prPath
+}
+
 function knownFlags(worktree) {
   try {
     const src = fs.readFileSync(path.join(worktree, 'desktop/src/common/featureFlagTypes.ts'), 'utf8')
@@ -684,6 +712,10 @@ ipcMain.handle('set-worktree', (_e, service, wt) => {
   saveSettings()
   pushState()
   return knownFlags(settings.desktopWorktree)
+})
+ipcMain.handle('checkout-pr', (_e, url) => {
+  if (typeof url !== 'string') throw new Error('Invalid PR link')
+  return checkoutPr(url)
 })
 ipcMain.handle('set-flags', (_e, flags) => {
   settings.flags = flags

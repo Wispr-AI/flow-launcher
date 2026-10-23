@@ -190,3 +190,24 @@ test('failed backend prevents frontend launch', async () => {
   assert.deepEqual(app.calls(), [])
   assert.equal(app.run('state.desktop.waitingForBackend'), false)
 })
+
+test('PR link checks the branch out into its own worktree, or reuses one that has it', async () => {
+  const app = launcher()
+  app.run(`
+    run = async (cmd, args) => { calls.push([cmd, ...args]); return { code: 0, stdout: 'someone/pr-branch\\n' } }
+    spawnShell = (command, options) => { calls.push(['spawn', command, options.cwd]); return { exited: Promise.resolve({ code: 0 }) } }
+    listWorktrees = async () => worktrees
+    worktrees = []
+  `)
+  const root = app.run('ARIA_ROOT')
+  await assert.rejects(app.handlers['checkout-pr'](null, 'https://github.com/other/repo/pull/1'), /Expected a github.com/)
+  assert.equal(await app.handlers['checkout-pr'](null, ' https://github.com/Wispr-AI/aria-flow/pull/999999/files '), `${root}/.worktrees/pr-999999`)
+  assert.deepEqual(app.calls(), [
+    ['gh', 'pr', 'view', '999999', '--json', 'headRefName', '-q', '.headRefName'],
+    ['spawn', 'git worktree add --detach .worktrees/pr-999999 && cd .worktrees/pr-999999 && gh pr checkout 999999 && WORKTREESETUP_PROJECTS=desktop WORKTREESETUP_SKIP_FETCH=1 ./.worktreesetup', root],
+  ])
+
+  app.run(`calls.length = 0; worktrees = [{ path: '/mine', branch: 'someone/pr-branch' }]`)
+  assert.equal(await app.handlers['checkout-pr'](null, 'https://github.com/Wispr-AI/aria-flow/pull/999999'), '/mine')
+  assert.equal(app.calls().length, 1)
+})

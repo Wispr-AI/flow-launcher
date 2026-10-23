@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('launcher', {
   worktrees: () => ipcRenderer.invoke('worktrees'),
   toggle: (tile, action) => ipcRenderer.invoke('toggle', tile, action),
   setWorktree: (service, wt) => ipcRenderer.invoke('set-worktree', service, wt),
+  checkoutPr: (url) => ipcRenderer.invoke('checkout-pr', url),
   setFlags: (flags) => ipcRenderer.invoke('set-flags', flags),
   setBackendArgs: (args) => ipcRenderer.invoke('set-backend-args', args),
   setLogsOpen: (open) => ipcRenderer.invoke('set-logs-open', open),
