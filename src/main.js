@@ -552,6 +552,8 @@ async function startDesktop(tile, worktree, backendWorktree) {
   const env = useLocalBackend ? { ...(await backendEnv(backendWorktree)), ...DEV_SIGNIN_ENV } : {}
   const backendDown = useLocalBackend && !lastScan.backends.some((b) => b.worktree === backendWorktree)
   Object.assign(env, featureFlagEnv())
+  // The dev webpack build outgrows Node's default ~4GB heap; CI gives it 8GB too.
+  env.NODE_OPTIONS = `${process.env.NODE_OPTIONS || ''} --max-old-space-size=8192`.trim()
 
   clearLog('desktop')
   note('desktop', loginNote)

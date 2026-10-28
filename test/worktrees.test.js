@@ -104,7 +104,7 @@ for (const [tile, command] of [['local-prod', 'yarn start'], ['local-staging', '
     assert.equal(calls.length, 1)
     assert.equal(calls[0][1], command)
     assert.equal(calls[0][2].cwd, '/frontend/desktop')
-    assert.deepEqual(calls[0][2].env, {})
+    assert.deepEqual(calls[0][2].env, { NODE_OPTIONS: '--max-old-space-size=8192' })
   })
 }
 
