@@ -548,25 +548,15 @@ async function startDesktop(tile, worktree, backendWorktree) {
   }
 
   const useLocalBackend = tile === 'local-local'
-  let env = {}
-  if (useLocalBackend) {
-    busy.desktop = true
-    setDesktop({ tile, worktree, backendWorktree, status: 'starting', external: false, waitingForBackend: true })
-    const ok = await startBackend(backendWorktree)
-    busy.desktop = false
-    setDesktop({ waitingForBackend: false })
-    if (!ok) {
-      await poll()
-      note('desktop', 'Not starting desktop: local backend failed to start (see Backend logs)')
-      return
-    }
-    env = { ...(await backendEnv(backendWorktree)), ...DEV_SIGNIN_ENV }
-  }
-  env = { ...env, ...featureFlagEnv() }
+  // Local → local only points at the selected backend's ports; it never starts the backend.
+  const env = useLocalBackend ? { ...(await backendEnv(backendWorktree)), ...DEV_SIGNIN_ENV } : {}
+  const backendDown = useLocalBackend && !lastScan.backends.some((b) => b.worktree === backendWorktree)
+  Object.assign(env, featureFlagEnv())
 
   clearLog('desktop')
   note('desktop', loginNote)
   if (env.WISPR_FEATURE_FLAGS) note('desktop', `Feature flag overrides: ${env.WISPR_FEATURE_FLAGS}`)
+  if (backendDown) note('desktop', `Local backend (${shortWt(backendWorktree)}) isn't running; starting the desktop anyway`)
   const startArg = DESKTOP_START_ARG[tile]
   const child = spawnShell(`yarn start${startArg ? ` ${startArg}` : ''}`, {
     cwd: path.join(worktree, 'desktop'),

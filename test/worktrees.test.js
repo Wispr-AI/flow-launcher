@@ -77,14 +77,14 @@ test('local desktop launches in frontend checkout with selected backend ports an
   const app = launcher({ backendWorktree: '/backend', desktopWorktree: '/frontend', flags: [{ name: 'flag', state: 'on' }] })
   await app.run("toggle('local-local')")
   const calls = app.calls()
-  assert.deepEqual(calls.slice(0, 2), [['backend', '/backend'], ['env', '/backend']])
-  assert.equal(calls[2][1], 'yarn start dev-backend')
-  assert.equal(calls[2][2].cwd, '/frontend/desktop')
-  assert.equal(calls[2][2].env.BASE_WEB_URL, 'http://127.0.0.1:8100')
-  assert.equal(calls[2][2].env.LOCAL_WEBSOCKET_HOST, 'ws://127.0.0.1:8100/')
-  assert.equal(calls[2][2].env.SUPABASE_URL, 'http://127.0.0.1:9100')
-  assert.equal(calls[2][2].env.DEV_LOCAL_SIGNIN_EMAIL, 'dev@wispr.ai')
-  assert.equal(calls[2][2].env.WISPR_FEATURE_FLAGS, 'flag')
+  assert.deepEqual(calls[0], ['env', '/backend'])
+  assert.equal(calls[1][1], 'yarn start dev-backend')
+  assert.equal(calls[1][2].cwd, '/frontend/desktop')
+  assert.equal(calls[1][2].env.BASE_WEB_URL, 'http://127.0.0.1:8100')
+  assert.equal(calls[1][2].env.LOCAL_WEBSOCKET_HOST, 'ws://127.0.0.1:8100/')
+  assert.equal(calls[1][2].env.SUPABASE_URL, 'http://127.0.0.1:9100')
+  assert.equal(calls[1][2].env.DEV_LOCAL_SIGNIN_EMAIL, 'dev@wispr.ai')
+  assert.equal(calls[1][2].env.WISPR_FEATURE_FLAGS, 'flag')
   app.run(`lastScan.localDesktops = [{ worktree: '/frontend' }]; reconcileDesktop()`)
   assert.equal(app.run('state.desktop.backendWorktree'), '/backend')
   assert.equal(app.run('state.desktop.status'), 'running')
@@ -123,7 +123,7 @@ test('restart stops and starts with the current selections, without asking', asy
   runLocal(app)
   app.run("state.installed.status = 'running'")
   await app.run("toggle('local-local', 'restart')")
-  assert.deepEqual(app.calls().slice(0, 3), [['stop', 'local-local'], ['backend', '/backend'], ['env', '/backend']])
+  assert.deepEqual(app.calls().slice(0, 2), [['stop', 'local-local'], ['env', '/backend']])
 })
 
 test('starting a second local build must quit the first', async () => {
@@ -183,12 +183,12 @@ test('Local → local and the installed app never run together', async () => {
   assert.deepEqual(other.calls().slice(0, 2), [['dialog', ['Quit Local desktop → local backend (frontend) and start', 'Cancel']], ['stop', 'local-local']])
 })
 
-test('failed backend prevents frontend launch', async () => {
+test('Local → local never starts the backend, even when it is down', async () => {
   const app = launcher({ backendWorktree: '/backend', desktopWorktree: '/frontend' })
-  app.run('startBackend = async () => false')
   await app.run("toggle('local-local')")
-  assert.deepEqual(app.calls(), [])
-  assert.equal(app.run('state.desktop.waitingForBackend'), false)
+  const calls = app.calls()
+  assert.ok(!calls.some(([kind]) => kind === 'backend'))
+  assert.equal(calls.at(-1)[1], 'yarn start dev-backend')
 })
 
 test('PR link checks the branch out into its own worktree, or reuses one that has it', async () => {

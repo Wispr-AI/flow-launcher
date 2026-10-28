@@ -114,7 +114,6 @@ function tileView(tile) {
   if (d.tile !== tile) return { status: tile === pendingTile ? 'starting' : 'off', where: '', other: false }
   let where = tile === 'prod' ? '' : shortWt(d.worktree)
   if (tile === 'local-local' && d.backendWorktree) where += ` → ${shortWt(d.backendWorktree)}`
-  if (d.waitingForBackend) where = `${where} · waiting for backend`
   if (d.external) where = `${where} · started outside launcher`
   return { status: d.status, where, other: tile !== 'prod' && d.status !== 'off' && (d.worktree !== selected || (tile === 'local-local' && !!d.backendWorktree && d.backendWorktree !== state.settings.backendWorktree)) }
 }
