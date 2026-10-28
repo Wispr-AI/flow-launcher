@@ -211,3 +211,17 @@ test('PR link checks the branch out into its own worktree, or reuses one that ha
   assert.equal(await app.handlers['checkout-pr'](null, 'https://github.com/Wispr-AI/aria-flow/pull/999999'), '/mine')
   assert.equal(app.calls().length, 1)
 })
+
+test('reads running backends from wispr-dev status, with or without the public API column', async () => {
+  const app = launcher()
+  app.run(`run = async () => ({ stdout: [
+    'Slot   Instance             Backend    Public API   Docker         Directory',
+    '1      aria-flow            :8100      :8101        stopped        /repo',
+    '11     speaker-you-label    :9100      :9101        running (18)   /repo/wt/speaker-you-label',
+    '12     old-format           :9200      running (3)    /repo/wt/old-format',
+  ].join('\\n') })`)
+  assert.deepEqual(JSON.parse(JSON.stringify(await app.run('scanBackends()'))), [
+    { instance: 'speaker-you-label', port: 9100, worktree: '/repo/wt/speaker-you-label' },
+    { instance: 'old-format', port: 9200, worktree: '/repo/wt/old-format' },
+  ])
+})

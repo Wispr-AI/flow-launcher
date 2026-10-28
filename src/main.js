@@ -240,7 +240,7 @@ async function scanBackends() {
   const { stdout } = await run('python3', [path.join(ARIA_ROOT, 'scripts', 'wispr-dev'), 'status'], { cwd: ARIA_ROOT })
   const out = []
   for (const line of stdout.split('\n')) {
-    const m = line.match(/^\s*\d+\s+(\S+)\s+:(\d+)\s+(running.*?|stopped|\S+)\s{2,}(\/.+)$/)
+    const m = line.match(/^\s*\d+\s+(\S+)\s+:(\d+)\s+(?::\d+\s+)?(running.*?|stopped|\S+)\s{2,}(\/.+)$/)
     if (m && m[3].startsWith('running')) out.push({ instance: m[1], port: Number(m[2]), worktree: m[4].trim() })
   }
   return out
