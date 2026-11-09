@@ -225,3 +225,14 @@ test('reads running backends from wispr-dev status, with or without the public A
     { instance: 'old-format', port: 9200, worktree: '/repo/wt/old-format' },
   ])
 })
+
+test('on flags with a JSON payload are passed as WISPR_FEATURE_FLAG_PAYLOADS', () => {
+  const app = launcher({ flags: [
+    { name: 'meeting-recorder', state: 'on', variant: '', payload: '{"smartPrompts":false}' },
+    { name: 'muted', state: 'off', variant: '', payload: '{"a":1}' },
+  ] })
+  assert.deepEqual(JSON.parse(JSON.stringify(app.run('featureFlagEnv()'))), {
+    WISPR_FEATURE_FLAGS: 'meeting-recorder,muted=false',
+    WISPR_FEATURE_FLAG_PAYLOADS: '{"meeting-recorder":{"smartPrompts":false}}',
+  })
+})

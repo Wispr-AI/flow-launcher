@@ -53,12 +53,16 @@ function saveSettings() {
   fs.writeFileSync(settingsPath(), JSON.stringify(settings, null, 2))
 }
 
-/** Builds WISPR_FEATURE_FLAGS: on → `name` / `name=variant`, off → `name=false`, posthog → omitted. */
+/** Builds WISPR_FEATURE_FLAGS: on → `name` / `name=variant`, off → `name=false`, posthog → omitted; on flags' JSON payloads go in WISPR_FEATURE_FLAG_PAYLOADS. */
 function featureFlagEnv() {
   const entries = settings.flags
     .filter((f) => f.state !== 'posthog')
     .map((f) => (f.state === 'off' ? `${f.name}=false` : f.variant ? `${f.name}=${f.variant}` : f.name))
-  return entries.length ? { WISPR_FEATURE_FLAGS: entries.join(',') } : {}
+  const payloads = Object.fromEntries(settings.flags.filter((f) => f.state === 'on' && f.payload).map((f) => [f.name, JSON.parse(f.payload)]))
+  return {
+    ...(entries.length && { WISPR_FEATURE_FLAGS: entries.join(',') }),
+    ...(Object.keys(payloads).length && { WISPR_FEATURE_FLAG_PAYLOADS: JSON.stringify(payloads) }),
+  }
 }
 
 // ---------------------------------------------------------------- logs
@@ -558,6 +562,7 @@ async function startDesktop(tile, worktree, backendWorktree) {
   clearLog('desktop')
   note('desktop', loginNote)
   if (env.WISPR_FEATURE_FLAGS) note('desktop', `Feature flag overrides: ${env.WISPR_FEATURE_FLAGS}`)
+  if (env.WISPR_FEATURE_FLAG_PAYLOADS) note('desktop', `Feature flag payloads: ${env.WISPR_FEATURE_FLAG_PAYLOADS}`)
   if (backendDown) note('desktop', `Local backend (${shortWt(backendWorktree)}) isn't running; starting the desktop anyway`)
   const startArg = DESKTOP_START_ARG[tile]
   const child = spawnShell(`yarn start${startArg ? ` ${startArg}` : ''}`, {

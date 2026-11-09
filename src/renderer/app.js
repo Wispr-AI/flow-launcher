@@ -210,11 +210,12 @@ function renderFlags() {
     const name = document.createElement('span')
     name.className = 'flag-name'
     name.textContent = f.name
-    name.title = f.variant ? `${f.name}=${f.variant}` : f.name
-    if (f.variant) {
+    const value = f.variant || f.payload
+    name.title = value ? `${f.name}=${value}` : f.name
+    if (value) {
       const v = document.createElement('span')
       v.className = 'variant'
-      v.textContent = `=${f.variant}`
+      v.textContent = `=${value}`
       name.append(v)
     }
 
@@ -246,6 +247,8 @@ function renderFlags() {
   })
 }
 
+$('#flag-input').addEventListener('input', (e) => e.target.setCustomValidity(''))
+
 $('#flag-form').addEventListener('submit', (e) => {
   e.preventDefault()
   const raw = $('#flag-input').value.trim()
@@ -253,9 +256,20 @@ $('#flag-form').addEventListener('submit', (e) => {
   const [name, ...rest] = raw.split('=')
   const variant = rest.join('=').trim()
   const isBool = /^(true|1|on|yes|enabled|false|0|off|no|disabled)$/i.test(variant)
+  const isPayload = variant.startsWith('{')
+  if (isPayload) {
+    try {
+      JSON.parse(variant)
+    } catch {
+      $('#flag-input').setCustomValidity('Payload is not valid JSON')
+      $('#flag-input').reportValidity()
+      return
+    }
+  }
   const entry = {
     name: name.trim(),
-    variant: variant && !isBool ? variant : '',
+    variant: variant && !isBool && !isPayload ? variant : '',
+    payload: isPayload ? variant : '',
     state: isBool && /^(false|0|off|no|disabled)$/i.test(variant) ? 'off' : 'on',
   }
   const existing = flags.findIndex((f) => f.name === entry.name)
