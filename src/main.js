@@ -493,7 +493,12 @@ async function stopLocal() {
       return stdout
         .split('\n')
         .map((l) => l.match(/^\s*(\d+)\s+(.*)$/))
-        .filter((m) => m && (m[2].startsWith(`${desktopDir}node_modules/electron/dist/Electron.app/Contents/MacOS/Electron`) || m[2].startsWith(`${desktopDir}swift-helper-app-dist/`)))
+        .filter((m) => m && (
+          m[2].startsWith(`${desktopDir}node_modules/electron/dist/Electron.app/Contents/MacOS/Electron`) ||
+          m[2].startsWith(`${desktopDir}swift-helper-app-dist/`) ||
+          // Forge's dev server holds :9000/:3000; wait for it too or the next start finds the ports taken.
+          m[2].includes(`${desktopDir}node_modules/@electron-forge/`)
+        ))
         .map((m) => Number(m[1]))
     }
     if (ownDesktop && !external) killGroup(ownDesktop.child)
