@@ -221,7 +221,8 @@ function renderFlags() {
 
     const seg = document.createElement('div')
     seg.className = 'seg'
-    for (const [v, label] of [['on', f.variant ? 'Variant' : 'On'], ['off', 'Off'], ['posthog', 'PostHog']]) {
+    const options = f.payload ? [['on', 'On'], ['off', 'Off']] : [['on', f.variant ? 'Variant' : 'On'], ['off', 'Off'], ['posthog', 'PostHog']]
+    for (const [v, label] of options) {
       const b = document.createElement('button')
       b.dataset.v = v
       b.textContent = label
@@ -272,7 +273,7 @@ $('#flag-form').addEventListener('submit', (e) => {
     payload: isPayload ? variant : '',
     state: isBool && /^(false|0|off|no|disabled)$/i.test(variant) ? 'off' : 'on',
   }
-  const existing = flags.findIndex((f) => f.name === entry.name)
+  const existing = flags.findIndex((f) => f.name === entry.name && !f.payload === !entry.payload)
   if (existing >= 0) flags[existing] = entry
   else flags.unshift(entry)
   $('#flag-input').value = ''

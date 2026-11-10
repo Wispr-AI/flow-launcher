@@ -53,10 +53,11 @@ function saveSettings() {
   fs.writeFileSync(settingsPath(), JSON.stringify(settings, null, 2))
 }
 
-/** Builds WISPR_FEATURE_FLAGS: on → `name` / `name=variant`, off → `name=false`, posthog → omitted; on flags' JSON payloads go in WISPR_FEATURE_FLAG_PAYLOADS. */
+/** Builds WISPR_FEATURE_FLAGS: on → `name` / `name=variant`, off → `name=false`, posthog → omitted; payload rows that are on go in WISPR_FEATURE_FLAG_PAYLOADS. */
 function featureFlagEnv() {
+  // Payload rows only toggle the payload; the flag itself is a separate row.
   const entries = settings.flags
-    .filter((f) => f.state !== 'posthog')
+    .filter((f) => !f.payload && f.state !== 'posthog')
     .map((f) => (f.state === 'off' ? `${f.name}=false` : f.variant ? `${f.name}=${f.variant}` : f.name))
   const payloads = Object.fromEntries(settings.flags.filter((f) => f.state === 'on' && f.payload).map((f) => [f.name, JSON.parse(f.payload)]))
   return {
